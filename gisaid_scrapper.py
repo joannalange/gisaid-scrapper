@@ -1,3 +1,4 @@
+import logging
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from bs4 import BeautifulSoup
@@ -34,6 +35,12 @@ METADATA_COLUMNS = [
     "Comment",
     "Length"
 ]
+
+FORMAT = '[%(asctime)s] - %(message)s'
+DATEFORMAT = '%Y-%m-%d %H:%M:%S'
+logging.basicConfig(level=logging.INFO, format=FORMAT, datefmt=DATEFORMAT)
+logger = logging.getLogger("__main__")
+
 
 class GisaidCoVScrapper:
     def __init__(
@@ -136,7 +143,10 @@ class GisaidCoVScrapper:
         # time.sleep(2)
 
         for i in tqdm.trange(len(rows)):
-            self._download_row(parent_form, i)
+            try:
+                self._download_row(parent_form, i)
+            except Exception as e:
+                logger.error("Couldn't download row, because of the following error:\n%s", e)
 
     def _download_row(self, parent_form, row_id):
         row = parent_form.find_elements_by_tag_name("tr")[row_id]
@@ -160,7 +170,11 @@ class GisaidCoVScrapper:
     def _save_data(self, iframe, name):
         self.driver.switch_to.frame(iframe)
         time.sleep(2)
-        pre = self.driver.find_elements_by_tag_name("pre")[0]
+        pre_element = self.driver.find_elements_by_tag_name("pre")
+        if not pre_element:
+            logger.error("Could not find a <pre> tag, skipping")
+            return
+        pre = pre_element[0]
         fasta = pre.text
         if self.whole_genome_only:
             if len(fasta)<29000:
